@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rust Unlock Tracker</title>
+<style>
+:root{--bg:#111315;--panel:#1a1d20;--panel2:#22262a;--line:#343a40;--text:#f1f3f4;--muted:#a4adb5;--orange:#e87932;--green:#60c58a}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#252a2f 0,#111315 55%);color:var(--text);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+header{padding:28px max(18px,calc((100vw - 1250px)/2));border-bottom:1px solid var(--line);background:#151719e8}
+.eyebrow{color:var(--orange);font-weight:800;letter-spacing:.18em;text-transform:uppercase;font-size:12px}h1{margin:5px 0 4px;font-size:clamp(28px,4vw,42px);letter-spacing:-.04em}header p{margin:0;color:var(--muted)}
+main{max-width:1250px;margin:auto;padding:20px 18px 50px}
+.toolbar{display:grid;grid-template-columns:minmax(220px,1fr) 220px auto auto;gap:10px;margin:16px 0}
+input,select,button{font:inherit;border:1px solid var(--line);border-radius:10px;padding:11px 12px;background:var(--panel);color:var(--text);min-width:0}
+input:focus,select:focus{outline:2px solid #e8793280;border-color:var(--orange)}
+button{cursor:pointer;font-weight:700;transition:.15s ease}button:hover{filter:brightness(1.12);transform:translateY(-1px)}.primary{background:var(--orange);border-color:var(--orange);color:#171717}.soft{background:var(--panel2)}
+.stats{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:12px;margin:16px 0}
+.stat{background:linear-gradient(135deg,#202428,#181a1d);border:1px solid var(--line);border-radius:14px;padding:16px}.stat small{color:var(--muted);display:block;margin-bottom:5px}.stat strong{font-size:25px}.progress{height:8px;background:#343a40;border-radius:99px;overflow:hidden;margin-top:12px}.progress span{display:block;height:100%;background:linear-gradient(90deg,var(--orange),#f3b36a);width:0%;transition:width .2s}
+.note{color:var(--muted);font-size:13px;margin:12px 0}.status{padding:10px 12px;background:#1a1d20;border:1px solid var(--line);border-radius:10px;color:var(--muted);margin:10px 0}
+.categorybar{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0 18px}.chip{padding:7px 11px;border-radius:999px;background:#1d2023;color:#cbd1d6;border:1px solid var(--line);font-size:13px}.chip.active{background:#e8793220;border-color:var(--orange);color:#ffb078}
+.sectionhead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:24px 0 12px}.sectionhead h2{margin:0;font-size:19px}.sectionhead span{color:var(--muted);font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:9px}
+.item{position:relative;display:flex;gap:10px;align-items:flex-start;min-height:78px;padding:12px;border:1px solid var(--line);border-radius:12px;background:linear-gradient(145deg,#202428,#191b1e);cursor:pointer;user-select:none;transition:border-color .12s,background .12s}
+.item:hover{border-color:#737b83}.item.unlocked{border-color:#438c61;background:linear-gradient(145deg,#1e3328,#1a2420)}
+.check{width:20px;height:20px;flex:0 0 20px;border:1.5px solid #747d85;border-radius:6px;display:grid;place-items:center;margin-top:1px;color:#102016;font-size:14px;font-weight:900}
+.unlocked .check{background:var(--green);border-color:var(--green)}.name{font-weight:750;font-size:14px;line-height:1.3}.meta{font-size:11px;color:var(--muted);margin-top:5px;overflow-wrap:anywhere}
+.item.unlocked .name{color:#c3f2d4}.empty{padding:35px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:14px}
+footer{margin-top:28px;border-top:1px solid var(--line);padding-top:18px;color:var(--muted);font-size:12px}
+@media(max-width:760px){.toolbar{grid-template-columns:1fr 1fr}.toolbar input{grid-column:1/-1}.stats{grid-template-columns:1fr 1fr}.stat:first-child{grid-column:1/-1}.grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}}
+</style>
+</head>
+<body>
+<header>
+  <div class="eyebrow">Survival • Research • Progress</div>
+  <h1>RUST <span style="color:var(--orange)">UNLOCK TRACKER</span></h1>
+  <p>A personal checklist for tracking Rust items and blueprints. Click an item to mark it unlocked.</p>
+</header>
+<main>
+  <div class="stats">
+    <div class="stat"><small>Overall progress</small><strong id="percent">0%</strong><div class="progress"><span id="bar"></span></div></div>
+    <div class="stat"><small>Items unlocked</small><strong id="done">0</strong></div>
+    <div class="stat"><small>Items in catalog</small><strong id="total">Loading…</strong></div>
+  </div>
+  <div class="toolbar">
+    <input id="search" type="search" placeholder="Search items (AK, rocket, door…)" aria-label="Search items">
+    <select id="category" aria-label="Filter category"><option value="all">All categories</option></select>
+    <button id="toggleView" class="soft">Show unlocked</button>
+    <button id="reset" class="soft">Reset progress</button>
+  </div>
+  <div class="toolbar" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-top:0">
+    <button id="export" class="primary">Export save</button>
+    <button id="importBtn" class="soft">Import save</button>
+    <button id="refresh" class="soft">Reload item catalog</button>
+    <input id="importFile" type="file" accept=".json,application/json" hidden>
+  </div>
+  <div class="status" id="status">Loading the Rust item catalog…</div>
+  <div class="categorybar" id="chips"></div>
+  <div class="sectionhead"><h2 id="listTitle">All items</h2><span id="shown">—</span></div>
+  <div class="grid" id="items"></div>
+  <footer>
+    This is an unofficial fan-made tracker and does not change your Rust account or in-game blueprints. Progress is saved in this browser on this device. Export a save file before switching devices or clearing browser data.
+    <br><br>Catalog source: <a href="https://github.com/SzyMig/Rust-item-list-JSON" target="_blank" rel="noopener" style="color:#f0a16b">community Rust item JSON</a>. The catalog is fetched from the internet when available; item names and categories may vary by game build.
+  </footer>
+</main>
+<script>
+const CATALOG_URL='https://raw.githubusercontent.com/SzyMig/Rust-item-list-JSON/main/Rust-Items.json';
+const fallbackNames = {
+"Weapons":["Assault Rifle","Bolt Action Rifle","Custom SMG","LR-300 Assault Rifle","MP5A4","M249","Semi-Automatic Rifle","Thompson","Python Revolver","Revolver","Semi-Automatic Pistol","Eoka Pistol","Rocket Launcher","Pump Shotgun","Double Barrel Shotgun","Waterpipe Shotgun","Compound Bow","Crossbow","Hunting Bow","Nailgun","Machete","Longsword","Salvaged Cleaver","Combat Knife","Spear"],
+"Ammunition":["5.56 Rifle Ammo","Pistol Bullet","Shotgun Shell","12 Gauge Buckshot","12 Gauge Slug","Explosive 5.56 Rifle Ammo","Incendiary 5.56 Rifle Ammo","Rocket","High Velocity Rocket","Incendiary Rocket","Wooden Arrow","Fire Arrow","Bone Arrow","HV 5.56 Rifle Ammo"],
+"Construction":["Wooden Door","Sheet Metal Door","Armored Door","Garage Door","Double Sheet Metal Door","Tool Cupboard","Building Plan","Hammer","Ladder Hatch","Stone Wall","Metal Wall","Armored Wall","Wooden Wall","Floor Grill","High External Stone Wall","High External Wooden Wall","Wooden Barricade","Sandbag Barricade"],
+"Resources":["Wood","Stone","Metal Fragments","High Quality Metal","Sulfur Ore","Sulfur","Metal Ore","Animal Fat","Cloth","Leather","Low Grade Fuel","Charcoal","Gun Powder","Scrap","Crude Oil","Diesel Fuel","HQM Ore"],
+"Components":["Gears","Metal Pipe","Metal Blade","Rope","Sewing Kit","Sheet Metal","Spring","Tech Trash","Road Signs","Tarp","Rifle Body","SMG Body","Semi Automatic Body","Empty Propane Tank"],
+"Medical":["Bandage","Medical Syringe","Large Medkit","Anti-Radiation Pills","Blood","Small Medkit"],
+"Tools":["Stone Hatchet","Stone Pickaxe","Metal Hatchet","Metal Pickaxe","Salvaged Axe","Salvaged Icepick","Jackhammer","Chainsaw","Building Plan","Hammer","Repair Bench","Research Table"],
+"Attire":["Wood Armor Helmet","Coffee Can Helmet","Metal Facemask","Metal Chest Plate","Roadsign Jacket","Roadsign Kilt","Hazmat Suit","Wolf Headdress","Hoodie","Pants","Boots","Gloves","Bandana Mask","Wood Armor Pants"],
+"Electrical":["Small Battery","Medium Battery","Large Battery","Solar Panel","Wind Turbine","Electrical Branch","Splitter","Switch","Auto Turret","Flame Turret","Tesla Coil","Smart Alarm","HBHF Sensor","RF Receiver","RF Transmitter","Door Controller","Wire Tool","AND Switch","OR Switch"],
+"Food & Farming":["Corn","Pumpkin","Blue Berries","Red Berries","Green Berries","Potato","Apple","Cooked Pork","Cooked Wolf Meat","Water Jug","Water Bucket","Large Water Catcher","Planter Box","Composter"],
+"Traps":["Shotgun Trap","Land Mine","Bear Trap","Flame Turret","Auto Turret","SAM Site","F1 Grenade","Beancan Grenade","Satchel Charge","Timed Explosive Charge"],
+"Miscellaneous":["Sleeping Bag","Bed","Small Wooden Box","Large Wooden Box","Furnace","Large Furnace","Oil Refinery","Research Table","Workbench Level 1","Workbench Level 2","Workbench Level 3","Recycler","Repair Bench","Camp Fire","BBQ","Water Purifier","Locker","Drop Box","Vending Machine","Camera"]
+};
+let items=[], unlocked=new Set(), onlyUnlocked=false, activeCategory='all';
+const $=id=>document.getElementById(id);
+function keyOf(x){return String(x.shortname||x.ShortName||x.shortName||x.itemid||x.ItemID||x.id||x.Name||x.name)}
+function cleanItem(x){
+  const name=x.Name||x.name||x.displayName||x.display_name||x.DisplayName||x.shortname||x.shortName||'Unknown item';
+  const short=x.shortname||x.shortName||x.ShortName||'';
+  const id=x.itemid??x.ItemID??x.id??'';
+  let cat=x.Category||x.category||x.itemType||x.ItemType||'Other';
+  if(typeof cat==='object')cat=JSON.stringify(cat);
+  return {key:String(short||id||name),name:String(name),short:String(short),id:String(id),category:String(cat).replace(/([a-z])([A-Z])/g,'$1 $2')};
+}
+function loadFallback(){
+  const list=[];
+  Object.entries(fallbackNames).forEach(([cat,names])=>names.forEach((name,i)=>list.push({key:'fallback:'+cat+':'+name,name,short:'',id:'',category:cat})));
+  return list;
+}
+function normalize(data){
+  let arr=Array.isArray(data)?data:(data.items||data.Items||data.itemList||Object.values(data));
+  return arr.filter(x=>x&&typeof x==='object').map(cleanItem).filter(x=>x.name&&x.name!=='Unknown item')
+    .filter((x,i,a)=>a.findIndex(y=>y.key===x.key)===i);
+}
+async function loadCatalog(){
+  $('status').textContent='Fetching the current item list…';
+  try{
+    const res=await fetch(CATALOG_URL,{cache:'no-store'});
+    if(!res.ok)throw new Error('Catalog request failed');
+    const data=await res.json();
+    const parsed=normalize(data);
+    if(parsed.length<100)throw new Error('Unexpected catalog format');
+    items=parsed;
+    $('status').textContent=`Loaded ${items.length.toLocaleString()} items from the community catalog.`;
+  }catch(e){
+    items=loadFallback();
+    $('status').textContent=`Could not reach the online catalog, so a starter checklist of ${items.length} common items is shown. Connect to the internet and press “Reload item catalog” to try loading the full list.`;
+  }
+  const saved=localStorage.getItem('rustUnlocksV1');
+  if(saved){try{unlocked=new Set(JSON.parse(saved));}catch{unlocked=new Set();}}
+  populateCategories();render();
+}
+function save(){try{localStorage.setItem('rustUnlocksV1',JSON.stringify([...unlocked]));}catch{}}
+function populateCategories(){
+  const cats=[...new Set(items.map(x=>x.category))].sort((a,b)=>a.localeCompare(b));
+  $('category').innerHTML='<option value="all">All categories</option>'+cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  $('chips').innerHTML=['all',...cats].map(c=>`<button class="chip ${activeCategory===c?'active':''}" data-cat="${esc(c)}">${c==='all'?'All':esc(c)}</button>`).join('');
+  $('chips').querySelectorAll('button').forEach(b=>b.onclick=()=>{activeCategory=b.dataset.cat;$('category').value=activeCategory;populateCategories();render();});
+}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function render(){
+  const q=$('search').value.trim().toLowerCase();
+  const cat=$('category').value;
+  activeCategory=cat;
+  const filtered=items.filter(x=>(cat==='all'||x.category===cat)&&(!onlyUnlocked||unlocked.has(x.key))&&(!q||(x.name+' '+x.short+' '+x.id+' '+x.category).toLowerCase().includes(q)));
+  $('items').innerHTML=filtered.map(x=>{
+    const done=unlocked.has(x.key);
+    return `<div class="item ${done?'unlocked':''}" role="checkbox" aria-checked="${done}" tabindex="0" data-key="${esc(x.key)}" title="Click to ${done?'mark locked':'mark unlocked'}"><div class="check">${done?'✓':''}</div><div><div class="name">${esc(x.name)}</div><div class="meta">${esc(x.category)}${x.short?' · '+esc(x.short):''}</div></div></div>`;
+  }).join('');
+  $('items').querySelectorAll('.item').forEach(el=>{
+    const toggle=()=>{const k=el.dataset.key;unlocked.has(k)?unlocked.delete(k):unlocked.add(k);save();render();};
+    el.onclick=toggle;el.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggle();}};
+  });
+  const n=items.length, d=items.filter(x=>unlocked.has(x.key)).length, pct=n?Math.round(d/n*100):0;
+  $('percent').textContent=pct+'%';$('bar').style.width=pct+'%';$('done').textContent=d.toLocaleString();$('total').textContent=n.toLocaleString();$('shown').textContent=`Showing ${filtered.length.toLocaleString()} of ${n.toLocaleString()}`;$('listTitle').textContent=onlyUnlocked?'Unlocked items':'Item checklist';
+  $('toggleView').textContent=onlyUnlocked?'Show all items':'Show unlocked';
+}
+$('search').addEventListener('input',render);
+$('category').addEventListener('change',()=>{activeCategory=$('category').value;populateCategories();render();});
+$('toggleView').onclick=()=>{onlyUnlocked=!onlyUnlocked;render();};
+$('reset').onclick=()=>{if(confirm('Reset all saved unlock progress on this browser?')){unlocked.clear();save();render();}};
+$('export').onclick=()=>{const blob=new Blob([JSON.stringify({app:'Rust Unlock Tracker',version:1,unlocked:[...unlocked],exportedAt:new Date().toISOString()},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='rust-unlock-progress.json';a.click();URL.revokeObjectURL(a.href);};
+$('importBtn').onclick=()=>$('importFile').click();
+$('importFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d.unlocked))throw new Error();unlocked=new Set(d.unlocked);save();render();$('status').textContent='Save imported successfully.';}catch{$('status').textContent='That file does not look like a Rust Unlock Tracker save.';}e.target.value='';};
+$('refresh').onclick=loadCatalog;
+loadCatalog();
+</script>
+</body>
+</html>
